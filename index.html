@@ -1,1 +1,28 @@
-@file:/home/workdir/artifacts/index.html
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orbital Observatory — bootstrap</title>
+<style>
+body{margin:0;min-height:100vh;background:#03080c;color:#e2ecef;font:16px/1.5 Inter,system-ui,sans-serif;display:grid;place-items:center;padding:24px}
+main{max-width:42rem}
+h1{font-weight:500;letter-spacing:.04em}
+code,pre{font:13px/1.45 ui-monospace,Consolas,monospace;color:#83e8dc}
+pre{background:#10202bd9;border:1px solid #adcdda24;padding:14px 16px;border-radius:10px;overflow:auto}
+a{color:#83e8dc}
+</style>
+</head>
+<body>
+<main>
+<h1>Orbital Observatory</h1>
+<p>Это загрузчик ветки <code>feature/wave-1a-physics</code>. Игровой монолит <code>index.html</code> (~1.1&nbsp;MB, Three.js r128 + N-body + Gravity Slingshot) нужно положить в корень репозитория относительно этого файла.</p>
+<p>Правила сборки и карта кода — в <a href="./CLAUDE.md">CLAUDE.md</a>. Вспомогательных <code>p9.py</code> в поставке нет: тесты встроены в монолит (<code>?autorun_tests</code>).</p>
+<pre>cp ./orbital-observatory.html ./index.html
+python3 -m http.server 8080
+# http://127.0.0.1:8080/index.html
+# http://127.0.0.1:8080/index.html?sandbox
+# http://127.0.0.1:8080/index.html?autorun_tests</pre>
+</main>
+</body>
+</html>
