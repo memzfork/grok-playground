@@ -1,7 +1,16 @@
 # Orbital Observatory / Gravity Slingshot
 
-Контекст для Claude Code. Репозиторий стартует с **одного самодостаточного HTML-файла**.
-Цель волны `feature/wave-1a-physics` — аккуратно вынести физику N-body, не ломая игру и обсерваторию.
+Контекст для Claude Code. Цель волны `feature/wave-1a-physics` — аккуратно вынести физику N-body, не ломая игру и обсерваторию.
+
+## Первый шаг сессии
+
+Если корневой `index.html` меньше ~50 КБ и в нём нет `function stepPhysics` / `const Game` — это **загрузчик**, не игра.
+
+1. Положи в корень монолит (~1.12 MB, title `Orbital Observatory — N-Body & Relativity`).
+2. Путь только относительный: `./index.html`.
+3. Закоммить в эту же ветку. Не рефакторить физику, пока монолит не в git.
+4. `p9.py` и отдельного каталога тестов в поставке **нет**.
+5. Если появился каталог `parts/index.part*`, собери относительно: `./assemble.sh`.
 
 ## Что это
 
@@ -15,46 +24,41 @@
 
 Сборщика **нет**. Нет npm, webpack, vite, TypeScript. Проект открывается как статика.
 
-Вспомогательных скриптов `p9.py` и отдельного каталога тестов **нет** — верификация встроена в HTML (`window.runVerificationTests`, `?autorun_tests`).
+Верификация встроена в HTML (`window.runVerificationTests`, `?autorun_tests`).
 
 ## Как запускать
 
-Любой из вариантов, пути только относительные:
+Пути только относительные:
 
 ```bash
-# из корня репозитория
 python3 -m http.server 8080
-# затем http://127.0.0.1:8080/index.html
+# http://127.0.0.1:8080/index.html
 ```
-
-Режимы через query string (относительный URL, без абсолютных путей):
 
 | URL | Режим |
 |---|---|
-| `index.html` | игра, уровни Gravity Slingshot (`Game.boot()`) |
-| `index.html?sandbox` | научная обсерватория, пресет Gargantua / interstellar |
-| `index.html?autorun_tests` | прогон встроенных verification-тестов |
-| `index.html?level=3` | старт конкретного уровня (1-based) |
-| `index.html?adsmock` | заглушка рекламы даже вне localhost |
+| `index.html` | игра Gravity Slingshot (`Game.boot()`) |
+| `index.html?sandbox` | обсерватория, пресет interstellar |
+| `index.html?autorun_tests` | встроенные verification-тесты |
+| `index.html?level=3` | уровень (1-based) |
+| `index.html?adsmock` | заглушка рекламы |
 
-Открывать `index.html` с `file://` можно, но Web Audio / YaGames / localStorage могут быть ограничены. Предпочитать локальный HTTP.
+`file://` допустим, но Web Audio / YaGames / localStorage могут отказать. Предпочитать HTTP.
 
-## Карта монолита (ориентиры, не трогать вслепую)
+## Карта монолита
 
-Порядок в одном `<script>` после CSS и встроенного Three.js:
+Один `<script>` после CSS и встроенного Three.js:
 
-1. Ядро симуляции: `SIM`, `phys` (SoA: `pos/vel/acc/mass/id/...`), `bodies`, `MAX_BODIES`.
-2. Интегратор: Velocity Verlet + `subSteps`, смягчение Пламмера (`softening`, `soft2`).
-3. Коллизии: `collisionMode` (`merge` и др.), CCD (`ccdSphereTime`).
-4. Релятивистика: `SIM.grEnabled`, `SIM.lightSpeed`, 1PN; флаг `grReady`.
-5. Инварианты: энергия, момент, drift HUD; `computeSystemEnergy`, `computePotentialEnergy`.
-6. Сцена / камера / GUI (`lil-gui`), пресеты `Presets` / `loadPreset`.
-7. Обсерватория: `initObservatory`, `window.observatory`.
-8. Аудио: `AudioEngine` (процедурный Web Audio).
-9. Игра: `LEVELS`, `LEVEL_HINTS`, `GSave`, `YSDK`, `MiniBro`, `GH` (ghost Verlet), `Game`.
-10. Boot: `DOMContentLoaded` → `initScene` → `initObservatory` → `Game.boot()` или `loadPreset('interstellar')` при `?sandbox`.
-
-Публичные точки, которые должны остаться живыми после рефакторинга:
+1. `SIM`, `phys` (SoA), `bodies`, `MAX_BODIES`
+2. Velocity Verlet + `subSteps`, смягчение Пламмера
+3. Коллизии / CCD (`ccdSphereTime`)
+4. 1PN: `SIM.grEnabled`, `SIM.lightSpeed`
+5. Инварианты: `computeSystemEnergy`, `computePotentialEnergy`
+6. Сцена, камера, lil-gui, `Presets` / `loadPreset`
+7. `initObservatory`, `window.observatory`
+8. `AudioEngine`
+9. `LEVELS`, `LEVEL_HINTS`, `GSave`, `YSDK`, `MiniBro`, `GH`, `Game`
+10. Boot: `DOMContentLoaded` → `initScene` → `initObservatory` → `Game.boot()` или `loadPreset('interstellar')` при `?sandbox`
 
 ```js
 window.observatory = {
@@ -67,82 +71,56 @@ window.observatory = {
   state: { count, time, preset, gr, paused, energy, renderer }
 };
 window.runVerificationTests
-Game.afterStep()          // вызывается из stepPhysics
+Game.afterStep()          // из stepPhysics
 Game.solve() / Game.solveAll()
 ```
 
-## Правила сборки — не ломать
+## Правила сборки
 
-1. **Канонический артефакт — `index.html` в корне.** Пока нет пайплайна сборки, страница должна открываться без шагов compile/bundle. Если начнёте сплитить JS — либо инлайнить обратно в `index.html`, либо добавить крошечный сборщик и явно описать команду в этом файле. Не оставляйте «полуразобранный» HTML с битыми `<script src>`.
-2. **Только относительные пути.** Запрещены `file://`, абсолютные диски и ведущий `/` для ассетов репозитория. Допустимы:
-   - `./index.html`, `./js/physics.js`, `./assets/...`;
-   - внешние https-ссылки в справке (arxiv, threejs.org);
-   - платформенный `/sdk.js` Яндекс Игр — это путь хоста площадки, не файл репо. Не заменять на локальный абсолютный путь.
-3. **Не выкидывать встроенный Three.js**, пока не подключён тот же r128 с рабочего относительного `vendor/three.min.js` и страница не проверена в sandbox + game.
-4. **Не менять численный контракт физики без тестов.** Ghost-симулятор (`GH` / `ghostRun`) обязан совпадать с боевым Verlet: те же `G`, `timeStep`, `subSteps`, softening, массы, CCD. Иначе сломаются прицел, подсказки и `LEVEL_HINTS`.
-5. **Координаты игры:** уровень задан в 2D `(x, y)` экрана (y вверх). Мир Three.js: `X = x`, `Y = 0`, `Z = −y`. Не «выпрямить» оси без правки `Game.W`, `goalAt`, камеры и хинтов.
-6. **Сиды и детерминизм.** Уровни стартуют через `resetRNG(7, 7)` и `resetBodyIdCounter()`. Не вводить `Math.random` в интегратор.
-7. **Сохранения.** Ключи `orbital_slingshot_v1` и слоты обсерватории — не переименовывать без миграции.
-8. **Язык UI** — ru/en через `L10N` / `setLang`. Комментарии в коде можно оставлять на русском, как в исходнике.
-9. **Реклама / YSDK.** Полноэкранная реклама только между уровнями (`MONET.interstitialEvery`, `minIntervalMs`). Не вызывать ads из `stepPhysics`.
-10. **Тесты обязательны после правок физики.** Открыть `index.html?autorun_tests` или вызвать `window.runVerificationTests()` в консоли. Если выносите тесты в отдельные файлы — запускать их той же командой, что описана ниже, и не удалять in-page runner, пока волна не закончена.
+1. **Канон — `./index.html`.** Без compile/bundle, пока не описана другая команда здесь.
+2. **Только относительные пути** для ассетов репо: `./js/...`, `./vendor/...`. Нельзя `file://`, диски, ведущий `/` внутри репо. Исключение: платформенный `/sdk.js` Яндекс Игр (хост площадки, не файл репо).
+3. **Не выкидывать встроенный Three.js r128**, пока нет рабочего `./vendor/three.min.js` и проверки sandbox + game.
+4. Ghost (`GH` / `ghostRun`) ≡ боевой Verlet (те же `G`, `timeStep`, `subSteps`, softening, CCD).
+5. Игра: уровень `(x, y)` y вверх; мир `X=x`, `Y=0`, `Z=-y`.
+6. `resetRNG(7, 7)` на старте уровня. Не сеять интегратор `Math.random`.
+7. Ключ сохранения `orbital_slingshot_v1` не переименовывать без миграции.
+8. Реклама только между уровнями, не из `stepPhysics`.
+9. После правок физики: `index.html?autorun_tests`.
 
-## Волна 1a — физика (ожидаемый скоуп)
+## Волна 1a
 
-Разрешено и желательно:
+Можно: вынести расчёт (ускорения, Verlet, 1PN, энергия, коллизии/Roche, ghost), сохранить API `stepPhysics` / `computeAccelerations`.
 
-- вынести в отдельные модули **только** расчёт: ускорения, Verlet, 1PN, энергия/момент, коллизии/Roche, ghost-integrator;
-- держать SoA `phys` и API `stepPhysics` / `computeAccelerations` стабильными;
-- добавить узкие юнит-проверки на инварианты (энергия двух тел, figure-8 не разваливается на коротком отрезке, ghost ≡ live).
+Нельзя без запроса: рендер/шейдеры/GUI, баланс `LEVELS`, npm «для красоты», смена интегратора.
 
-Не делать в этой ветке, если нет явного запроса:
-
-- переписывать рендер, шейдеры, bloom, GUI;
-- менять тексты уровней / баланс `LEVELS` / пересчитывать `LEVEL_HINTS` без нужды;
-- подключать npm «для красоты»;
-- переходить на другой интегратор (RK4, Barnes-Hut) без флага совместимости.
-
-Если сплитите файлы, предлагаемая раскладка (все пути относительные от корня):
+Сплит — только относительные пути от корня:
 
 ```
-index.html                 # оболочка: CSS + boot + <script type="module" src="./js/main.js">
-js/vendor/three.min.js     # только если вынесли Three, иначе оставить inline
-js/physics/soa.js
-js/physics/integrate.js
-js/physics/gravity.js
-js/physics/relativistic.js
-js/physics/collisions.js
-js/physics/invariants.js
-js/physics/ghost.js
-js/game/...                # не в скоупе 1a, пока не понадобится
-CLAUDE.md                  # этот файл, обновлять после смены сборки
+./index.html
+./js/physics/soa.js
+./js/physics/integrate.js
+./js/physics/gravity.js
+./js/physics/relativistic.js
+./js/physics/collisions.js
+./js/physics/invariants.js
+./js/physics/ghost.js
+./CLAUDE.md
 ```
 
-Пока файлов модуля нет — **не создавать пустые заготовки**, которые ломают загрузку. Сначала работающий split, потом удаление дублирующего куска из монолита.
+Пустые заготовки, которые ломают загрузку, не создавать.
 
-## Инварианты, которые нельзя молча сломать
+## Инварианты уровней
 
-- `SIM.G`, `SIM.softening`, `SIM.timeStep`, `SIM.subSteps` для уровней: `G=1`, `softening=0.06`, `timeStep=0.008`, `subSteps=4`.
-- Зонд: крошечная масса `1e-5`, не должен сдвигать звезду.
-- После `startLevel` нужен `computeAccelerations()` + `resetBaseEnergy()` до первого кадра.
-- `needsAccelerationRecalc` — не выкидывать.
-- Предел Роша и merge-коллизии используются и игрой, и пресетами (`rocheLab`, `protocloud`).
+`G=1`, `softening=0.06`, `timeStep=0.008`, `subSteps=4`. Зонд `mass=1e-5`. После `startLevel`: `computeAccelerations()` + `resetBaseEnergy()`.
 
-## Проверка перед коммитом
+## Проверка
 
 ```bash
 python3 -m http.server 8080
-# 1) http://127.0.0.1:8080/index.html           — меню уровней, первый полёт
-# 2) http://127.0.0.1:8080/index.html?sandbox   — сцена + lil-gui справа
-# 3) http://127.0.0.1:8080/index.html?autorun_tests
 ```
 
-Минимум руками: запуск зонда на уровне 1, пауза/шаг в sandbox, отсутствие ошибок в консоли (`boot-error` скрыт).
+Меню уровня 1, sandbox, `?autorun_tests`, нет `#boot-error`.
 
-## Соглашения для облачных сессий
+## Сессии
 
-- Коммитить в текущую ветку `feature/wave-1a-physics`, не в `main`.
-- Не переписывать `HELLO.md` / `NOTEPAD.md` / смысл `README.md` без нужды.
-- После смены структуры сразу править этот `CLAUDE.md` — следующая сессия читает только его.
-- Не класть секреты, токены, `node_modules`, бинарные дампы слотов.
-- Крупный монолит уже в git; не дублировать его копиями `index.copy.html`.
+Коммиты только в `feature/wave-1a-physics`. После смены структуры обновлять этот файл. Не трогать `HELLO.md` / `NOTEPAD.md` без нужды.
